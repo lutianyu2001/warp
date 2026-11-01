@@ -154,6 +154,8 @@ pub enum Event {
         title: Option<String>,
         body: String,
     },
+    /// A zmx session reported its foreground process on attach.
+    ZmxForegroundReported,
 }
 
 impl From<warp_terminal::event::Event> for Event {
@@ -498,6 +500,7 @@ impl Debug for Event {
             }
             Event::BootstrapPrecmdDone => write!(f, "BootstrapPrecmdDone"),
             Event::PluggableNotification { .. } => write!(f, "PluggableNotification"),
+            Event::ZmxForegroundReported => write!(f, "ZmxForegroundReported"),
             Event::ExitShell { session_id } => {
                 write!(f, "ExitShell(session: {session_id:?})")
             }

@@ -64,6 +64,27 @@ fn report_shell_typeahead(model: &mut TerminalModel, text: &str) {
 }
 
 #[test]
+fn zmx_foreground_lasts_until_the_attaching_block_finishes() {
+    let mut model = TerminalModel::mock(None, None);
+    model.simulate_long_running_block("zmx attach dev", "");
+    assert_eq!(model.zmx_foreground(), None);
+
+    model.process_bytes("\x1b]1337;SetUserVar=zmx_foreground=Y2xhdWRl\x07");
+    assert_eq!(model.zmx_foreground(), Some("claude"));
+
+    model.finish_block();
+    assert_eq!(model.zmx_foreground(), None);
+}
+
+#[test]
+fn unknown_user_vars_are_ignored() {
+    let mut model = TerminalModel::mock(None, None);
+    model.simulate_long_running_block("zmx attach dev", "");
+    model.process_bytes("\x1b]1337;SetUserVar=something_else=Y2xhdWRl\x07");
+    assert_eq!(model.zmx_foreground(), None);
+}
+
+#[test]
 fn take_typeahead_for_input_advances_incremental_typeahead() {
     let mut model = TerminalModel::mock(None, None);
     model.simulate_long_running_block("sleep 5", "");

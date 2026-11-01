@@ -78,6 +78,7 @@ pub mod terminal_manager;
 mod terminal_size_element;
 pub mod view;
 pub mod warpify;
+pub mod zmx;
 mod waterfall_gap_element;
 mod writeable_pty;
 #[cfg(feature = "tui")]

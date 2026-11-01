@@ -84,6 +84,7 @@ use crate::terminal::shared_session::ai_agent::encode_agent_response_event;
 use crate::terminal::shared_session::{SharedSessionSource, SharedSessionStatus};
 use crate::terminal::shell::{ShellName, ShellType};
 use crate::terminal::ssh::util::{InteractiveSshCommand, SshLoginState};
+use crate::terminal::zmx;
 use crate::terminal::{
     BlockPadding, ShellHost, ShellLaunchData, ShellLaunchState, SizeUpdate, SizeUpdateReason,
     color, ssh,
@@ -476,6 +477,9 @@ pub struct TerminalModel {
     handled_exit: bool,
     pending_shell_recovery_status: Option<ObservedExitStatus>,
     shell_replacement_pending: bool,
+
+    /// The foreground process a zmx session reported for the active block, if any.
+    zmx_foreground: Option<String>,
 
     /// The shell type of the login shell for this session.
     shell_launch_state: ShellLaunchState,
@@ -1113,6 +1117,7 @@ impl TerminalModel {
             handled_exit: false,
             pending_shell_recovery_status: None,
             shell_replacement_pending: false,
+            zmx_foreground: None,
             env_var_collection_name: None,
             shell_launch_state: shell_state,
             obfuscate_secrets,
@@ -2083,6 +2088,11 @@ impl TerminalModel {
         &mut self.alt_screen
     }
 
+    /// The foreground process a zmx session reported for the active block, if any.
+    pub fn zmx_foreground(&self) -> Option<&str> {
+        self.zmx_foreground.as_deref()
+    }
+
     pub fn is_alt_screen_active(&self) -> bool {
         self.alt_screen_active
     }
@@ -2430,6 +2440,8 @@ impl TerminalModel {
 
     /// Applies the normal command-completion pipeline and its once-per-command side effects.
     fn complete_command(&mut self, data: CompletionMetadata) {
+        self.zmx_foreground = None;
+
         // If we ssh from a doesn't-understand-bracketed-paste shell into one
         // that enables it, then get disconnected, we'll be stuck in a state
         // of bracketed paste being enabled, but the local shell doesn't know
@@ -3751,6 +3763,14 @@ impl ansi::Handler for TerminalModel {
         if FeatureFlag::PluggableNotifications.is_enabled() {
             self.event_proxy
                 .send_app_event(Event::PluggableNotification { title, body });
+        }
+    }
+
+    fn set_user_var(&mut self, name: String, value: String) {
+        if name == zmx::FOREGROUND_USER_VAR {
+            self.zmx_foreground = Some(value);
+            self.event_proxy
+                .send_app_event(Event::ZmxForegroundReported);
         }
     }
 

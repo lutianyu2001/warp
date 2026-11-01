@@ -15,6 +15,7 @@ use crate::terminal::cli_agent_sessions::{CLIAgentInputEntrypoint, CLIAgentSessi
 use crate::terminal::shared_session::{
     SharedSessionActionSource, SharedSessionScrollbackType, SharedSessionSource,
 };
+use crate::terminal::zmx;
 use crate::util::image::{MAX_IMAGE_SIZE_BYTES_FOR_CLI_AGENT, MIME_SNIFF_BYTES, infer_mime_type};
 mod warpify_footer;
 
@@ -378,12 +379,17 @@ impl TerminalView {
         }
 
         let command = active_block.command_with_secrets_obfuscated(false);
+        // The block's own command is `zmx attach`, so the agent has to be found inside it.
+        let agent_command = model
+            .zmx_foreground()
+            .or_else(|| zmx::attach_command(&command))
+            .unwrap_or(&command);
 
         let detected = self.active_block_session_id().and_then(|session_id| {
             self.sessions.read(ctx, |sessions, _| {
                 let session = sessions.get(session_id)?;
                 CLIAgent::detect(
-                    &command,
+                    agent_command,
                     Some(session.shell_family().escape_char()),
                     Some(session.aliases()),
                     ctx,
